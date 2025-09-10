@@ -1,11 +1,11 @@
-import { Page } from "zmp-ui";
+import React from "react";
+import GameContainer from "../components/GameContainer";
+import GameLayout from "../components/GameLayout";
 
+const Page: React.FC = () => (
+  <GameLayout>
+    <GameContainer />
+  </GameLayout>
+);
 
-function HomePage() {
-  return (
-    <Page>
-    </Page>
-  );
-}
-
-export default HomePage;
+export default Page;
