@@ -1,8 +1,4 @@
-import { Enemy } from './types';
-
-export function createEnemy(x: number, y: number): Enemy {
-    return { x, y, size: 18, speed: 0.7 };
-}
+import { Enemy } from '../types';
 
 export function moveEnemies(enemies: Enemy[], player: { x: number; y: number }): Enemy[] {
     return enemies.map(e => {

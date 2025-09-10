@@ -1,10 +1,12 @@
 import React, { useRef, useState } from "react";
-import { createEnemy, moveEnemies } from "../game/enemy";
-import { useKeyboardMovement, useTouchMovement } from '../game/input';
-import { createPlayer, movePlayer } from "../game/player";
-import { createProjectile, moveProjectiles } from "../game/projectile";
-import { Enemy, Player, Projectile } from "../game/types";
-import { useViewport } from '../game/useViewport';
+import { createEnemy } from "../game/enemy/enemy";
+import { useEnemySpawner } from '../game/hooks/useEnemySpawner';
+import { useGameDraw } from '../game/hooks/useGameDraw';
+import { useGameLoop } from '../game/hooks/useGameLoop';
+import { useKeyboardMovement, useTouchMovement } from '../game/hooks/usePlayerInput';
+import { useViewport } from '../game/hooks/useViewport';
+import { createPlayer } from "../game/player/player";
+import { Enemy, Player, Projectile, XPOrb } from "../game/types";
 
 const GameContainer: React.FC = () => {
     const viewport = useViewport();
@@ -19,6 +21,8 @@ const GameContainer: React.FC = () => {
     const enemiesRef = useRef<Enemy[]>(enemies);
     const [projectiles, setProjectiles] = useState<Projectile[]>([]);
     const projectilesRef = useRef<Projectile[]>([]);
+    const [xpOrbs, setXpOrbs] = useState<XPOrb[]>([]);
+    const xpOrbsRef = useRef<XPOrb[]>(xpOrbs);
     const [gameOver, setGameOver] = useState(false);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -27,194 +31,68 @@ const GameContainer: React.FC = () => {
     React.useEffect(() => { enemiesRef.current = enemies; }, [enemies]);
     React.useEffect(() => { projectilesRef.current = projectiles; }, [projectiles]);
     React.useEffect(() => { directionRef.current = direction; }, [direction]);
+    React.useEffect(() => { xpOrbsRef.current = xpOrbs; }, [xpOrbs]);
 
     useKeyboardMovement(setDirection);
     useTouchMovement(setDirection);
 
-    // Auto-spawn enemies at the border every 2 seconds
-    React.useEffect(() => {
-        if (gameOver) return;
-        const interval = setInterval(() => {
-            const border = Math.floor(Math.random() * 4);
-            let x = 0, y = 0;
-            if (border === 0) { // top
-                x = Math.random() * viewport.width;
-                y = -18;
-            } else if (border === 1) { // bottom
-                x = Math.random() * viewport.width;
-                y = viewport.height + 18;
-            } else if (border === 2) { // left
-                x = -18;
-                y = Math.random() * viewport.height;
-            } else { // right
-                x = viewport.width + 18;
-                y = Math.random() * viewport.height;
-            }
-            setEnemies(prev => [...prev, createEnemy(x, y)]);
-        }, 200);
-        return () => clearInterval(interval);
-    }, [gameOver, viewport]);
+    // Auto-spawn enemies using custom hook
+    useEnemySpawner({
+        gameOver,
+        viewport,
+        setEnemies,
+        createEnemy,
+        intervalMs: 200
+    });
 
     // Main game loop
-    React.useEffect(() => {
-        if (gameOver) return;
-        let animationId: number;
-        let lastShotTime = Date.now();
-        const bottomBlocker = 60;
-        // Initialize refs
-        playerRef.current = { ...player };
-        enemiesRef.current = [...enemies];
-        projectilesRef.current = [...projectiles];
-        const update = () => {
-            // Move player
-            playerRef.current = movePlayer(playerRef.current, directionRef.current, viewport, bottomBlocker);
-            // Move enemies
-            enemiesRef.current = moveEnemies(enemiesRef.current, playerRef.current);
-            // Move projectiles
-            projectilesRef.current = moveProjectiles(projectilesRef.current, viewport);
-            // Auto-attack: shoot every 0.5s
-            if (enemiesRef.current.length > 0 && Date.now() - lastShotTime > 500) {
-                const nearest = enemiesRef.current.reduce((a, b) => {
-                    const da = Math.hypot(playerRef.current.x - a.x, playerRef.current.y - a.y);
-                    const db = Math.hypot(playerRef.current.x - b.x, playerRef.current.y - b.y);
-                    return da < db ? a : b;
-                }, enemiesRef.current[0]);
-                const dx = nearest.x - playerRef.current.x;
-                const dy = nearest.y - playerRef.current.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist > 0) {
-                    projectilesRef.current.push(
-                        createProjectile(
-                            playerRef.current.x,
-                            playerRef.current.y,
-                            (dx / dist) * 7,
-                            (dy / dist) * 7
-                        )
-                    );
-                    lastShotTime = Date.now();
-                }
-            }
-            // Check collision: player/enemy
-            // Remove enemies that hit the player and only deal damage once
-            let playerHit = false;
-            const survivedEnemies: Enemy[] = [];
-            for (const e of enemiesRef.current) {
-                const dx = playerRef.current.x - e.x;
-                const dy = playerRef.current.y - e.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < playerRef.current.size + e.size) {
-                    if (!playerHit) {
-                        playerRef.current.health -= 20;
-                        playerHit = true;
-                    }
-                    // Enemy is removed (not pushed to survivedEnemies)
-                } else {
-                    survivedEnemies.push(e);
-                }
-            }
-            enemiesRef.current = survivedEnemies;
-            if (playerRef.current.health <= 0) {
-                setGameOver(true);
-                return;
-            }
-            // Check collision: projectile/enemy
-            const hitEnemies = new Set<number>();
-            const hitProjectiles = new Set<number>();
-            enemiesRef.current.forEach((e, ei) => {
-                projectilesRef.current.forEach((p, pi) => {
-                    const dx = p.x - e.x;
-                    const dy = p.y - e.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < p.size + e.size) {
-                        hitEnemies.add(ei);
-                        hitProjectiles.add(pi);
-                    }
-                });
-            });
-            enemiesRef.current = enemiesRef.current.filter((_, i) => !hitEnemies.has(i));
-            projectilesRef.current = projectilesRef.current.filter((_, i) => !hitProjectiles.has(i));
-            // Commit state for rendering
-            setPlayer({ ...playerRef.current });
-            setEnemies([...enemiesRef.current]);
-            setProjectiles([...projectilesRef.current]);
-            animationId = requestAnimationFrame(update);
-        };
-        animationId = requestAnimationFrame(update);
-        return () => cancelAnimationFrame(animationId);
-    }, [direction, gameOver, viewport]);
+    useGameLoop({
+        player,
+        setPlayer,
+        playerRef,
+        directionRef,
+        enemies,
+        setEnemies,
+        enemiesRef,
+        projectiles,
+        setProjectiles,
+        projectilesRef,
+        xpOrbs,
+        setXpOrbs,
+        xpOrbsRef,
+        gameOver,
+        setGameOver,
+        viewport
+    });
 
     // Drawing
-    React.useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = viewport.width * dpr;
-        canvas.height = viewport.height * dpr;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.scale(dpr, dpr);
-        ctx.clearRect(0, 0, viewport.width, viewport.height);
-    // Draw health bar
-    const barWidth = Math.max(120, viewport.width * 0.3);
-    const barHeight = 18;
-    const barX = (viewport.width - barWidth) / 2;
-    const barY = 16;
-    ctx.save();
-    ctx.globalAlpha = 0.8;
-    ctx.fillStyle = '#222';
-    ctx.fillRect(barX, barY, barWidth, barHeight);
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = '#e11d48';
-    ctx.fillRect(barX, barY, barWidth * (player.health / player.maxHealth), barHeight);
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(barX, barY, barWidth, barHeight);
-    ctx.restore();
-
-    // Draw player
-    ctx.beginPath();
-    ctx.arc(player.x, player.y, player.size, 0, 2 * Math.PI);
-    ctx.fillStyle = '#e11d48';
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-        // Draw enemies
-        enemies.forEach(e => {
-            ctx.beginPath();
-            ctx.arc(e.x, e.y, e.size, 0, 2 * Math.PI);
-            ctx.fillStyle = '#22d3ee';
-            ctx.fill();
-            ctx.strokeStyle = '#0ea5e9';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-        });
-        // Draw projectiles
-        projectiles.forEach(p => {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, 2 * Math.PI);
-            ctx.fillStyle = '#fbbf24';
-            ctx.shadowColor = '#fffde4';
-            ctx.shadowBlur = 10;
-            ctx.fill();
-            ctx.shadowBlur = 0;
-            ctx.strokeStyle = '#eab308';
-            ctx.lineWidth = 3;
-            ctx.stroke();
-            ctx.restore();
-        });
-        if (gameOver) {
-            ctx.font = 'bold 32px sans-serif';
-            ctx.fillStyle = '#fff';
-            ctx.textAlign = 'center';
-            ctx.fillText('Game Over', viewport.width / 2, viewport.height / 2);
-        }
-    }, [player, enemies, projectiles, gameOver, viewport]);
+    useGameDraw({
+        player,
+        enemies,
+        projectiles,
+        xpOrbs,
+        gameOver,
+        viewport,
+        canvasRef
+    });
 
     return (
         <>
+            <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100vw',
+                zIndex: 10,
+                color: '#fff',
+                fontSize: 18,
+                padding: 16,
+                pointerEvents: 'none',
+                textShadow: '0 2px 8px #000a',
+            }}>
+                <span>Level: {player.level}</span>
+                <span style={{ marginLeft: 24 }}>XP: {player.xp} / {player.xpToLevel}</span>
+            </div>
             <canvas
                 ref={canvasRef}
                 style={{

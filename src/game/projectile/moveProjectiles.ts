@@ -1,8 +1,4 @@
-import { Projectile } from './types';
-
-export function createProjectile(x: number, y: number, vx: number, vy: number): Projectile {
-    return { x, y, vx, vy, size: 12 };
-}
+import { Projectile } from '../types';
 
 export function moveProjectiles(projectiles: Projectile[], viewport: { width: number; height: number }): Projectile[] {
     return projectiles

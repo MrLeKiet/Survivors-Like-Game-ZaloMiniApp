@@ -1,22 +1,17 @@
 html, body, #root {
   width: 100vw;
-  height: 100dvh;
-  margin: 0;
-  padding: 0;
-  overflow: hidden !important;
-  box-sizing: border-box;
-}
-/* For JS fallback: set a CSS var for 100dvh */
-:root {
-  --100dvh: 100dvh;
-}
-html, body, #root {
-  width: 100vw;
   height: 100vh;
   margin: 0;
   padding: 0;
   overflow: hidden !important;
   box-sizing: border-box;
+  --safe-top: var(--zaui-safe-area-inset-top, env(safe-area-inset-top, 30px));
+  --safe-bottom: max(8px,
+      var(--zaui-safe-area-inset-bottom, env(safe-area-inset-bottom, 30px)));
+}
+/* For JS fallback: set a CSS var for 100dvh */
+:root {
+  --100dvh: 100dvh;
 }
 .page {
   padding: 16px 16px 96px 16px;
@@ -31,10 +26,4 @@ html, body, #root {
 
 .zaui-list-item {
   cursor: pointer;
-}
-
-:root {
-  --safe-top: var(--zaui-safe-area-inset-top, env(safe-area-inset-top, 30px));
-  --safe-bottom: max(8px,
-      var(--zaui-safe-area-inset-bottom, env(safe-area-inset-bottom, 30px)));
 }
