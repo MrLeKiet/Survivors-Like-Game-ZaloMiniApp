@@ -5,6 +5,8 @@ export type Player = {
     y: number;
     size: number;
     speed: number;
+    health: number;
+    maxHealth: number;
 };
 
 export type Enemy = {

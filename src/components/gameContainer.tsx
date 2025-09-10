@@ -51,7 +51,7 @@ const GameContainer: React.FC = () => {
                 y = Math.random() * viewport.height;
             }
             setEnemies(prev => [...prev, createEnemy(x, y)]);
-        }, 2000);
+        }, 200);
         return () => clearInterval(interval);
     }, [gameOver, viewport]);
 
@@ -95,14 +95,27 @@ const GameContainer: React.FC = () => {
                 }
             }
             // Check collision: player/enemy
+            // Remove enemies that hit the player and only deal damage once
+            let playerHit = false;
+            const survivedEnemies: Enemy[] = [];
             for (const e of enemiesRef.current) {
                 const dx = playerRef.current.x - e.x;
                 const dy = playerRef.current.y - e.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist < playerRef.current.size + e.size) {
-                    setGameOver(true);
-                    return;
+                    if (!playerHit) {
+                        playerRef.current.health -= 20;
+                        playerHit = true;
+                    }
+                    // Enemy is removed (not pushed to survivedEnemies)
+                } else {
+                    survivedEnemies.push(e);
                 }
+            }
+            enemiesRef.current = survivedEnemies;
+            if (playerRef.current.health <= 0) {
+                setGameOver(true);
+                return;
             }
             // Check collision: projectile/enemy
             const hitEnemies = new Set<number>();
@@ -142,14 +155,31 @@ const GameContainer: React.FC = () => {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.scale(dpr, dpr);
         ctx.clearRect(0, 0, viewport.width, viewport.height);
-        // Draw player
-        ctx.beginPath();
-        ctx.arc(player.x, player.y, player.size, 0, 2 * Math.PI);
-        ctx.fillStyle = '#e11d48';
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 3;
-        ctx.stroke();
+    // Draw health bar
+    const barWidth = Math.max(120, viewport.width * 0.3);
+    const barHeight = 18;
+    const barX = (viewport.width - barWidth) / 2;
+    const barY = 16;
+    ctx.save();
+    ctx.globalAlpha = 0.8;
+    ctx.fillStyle = '#222';
+    ctx.fillRect(barX, barY, barWidth, barHeight);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#e11d48';
+    ctx.fillRect(barX, barY, barWidth * (player.health / player.maxHealth), barHeight);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(barX, barY, barWidth, barHeight);
+    ctx.restore();
+
+    // Draw player
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.size, 0, 2 * Math.PI);
+    ctx.fillStyle = '#e11d48';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    ctx.stroke();
         // Draw enemies
         enemies.forEach(e => {
             ctx.beginPath();
