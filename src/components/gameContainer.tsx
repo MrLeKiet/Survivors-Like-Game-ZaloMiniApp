@@ -42,9 +42,17 @@ const GameContainer: React.FC = () => {
         viewport,
         setEnemies,
         createEnemy,
-        intervalMs: 200
+        intervalMs: 5000
     });
 
+    // Custom setter to update both state and ref for XP orbs
+    const setXpOrbsSync = (updater) => {
+        setXpOrbs(prev => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            xpOrbsRef.current = next;
+            return next;
+        });
+    };
     // Main game loop
     useGameLoop({
         player,
@@ -58,23 +66,39 @@ const GameContainer: React.FC = () => {
         setProjectiles,
         projectilesRef,
         xpOrbs,
-        setXpOrbs,
+        setXpOrbs: setXpOrbsSync,
         xpOrbsRef,
         gameOver,
         setGameOver,
         viewport
     });
 
-    // Drawing
+    // Drawing (use refs for smooth movement)
     useGameDraw({
-        player,
+        player: playerRef.current,
         enemies,
         projectiles,
-        xpOrbs,
+        xpOrbs, // Use state, not ref
         gameOver,
         viewport,
         canvasRef
     });
+
+    // React.useEffect(() => {
+    //     if (gameOver) return;
+    //     const interval = setInterval(() => {
+    //         const x = Math.random() * viewport.width;
+    //         const y = Math.random() * viewport.height;
+    //         setXpOrbs(prev => [
+    //             ...prev,
+    //             { x, y, size: 10, value: 1, spawnDelay: 0 }
+    //         ]);
+    //     }, 3000);
+    //     return () => clearInterval(interval);
+    // }, [gameOver, viewport, setXpOrbs]);
+
+
+    // XP orb update/collection logic is handled in useGameLoop only
 
     return (
         <>
@@ -99,7 +123,7 @@ const GameContainer: React.FC = () => {
                     width: '100vw',
                     height: '100dvh',
                     display: 'block',
-                    background: '#222',
+                    background: '#111827',
                     borderRadius: 0,
                     boxShadow: '0 4px 24px #0008',
                     touchAction: 'none',

@@ -3,6 +3,7 @@ export type XPOrb = {
     y: number;
     size: number;
     value: number;
+    spawnDelay?: number; // frames until collectible
 };
 // Shared game types
 

@@ -29,6 +29,7 @@ export function useGameDraw({
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.scale(dpr, dpr);
         ctx.clearRect(0, 0, viewport.width, viewport.height);
+        // ...existing code...
         // Draw enemies
         enemies.forEach(e => {
             ctx.beginPath();
@@ -54,25 +55,6 @@ export function useGameDraw({
             ctx.stroke();
             ctx.restore();
         });
-        // Draw XP orbs (make them very visible)
-        xpOrbs.forEach(orb => {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(orb.x, orb.y, orb.size + 4, 0, 2 * Math.PI);
-            const grad = ctx.createRadialGradient(orb.x, orb.y, orb.size, orb.x, orb.y, orb.size + 4);
-            grad.addColorStop(0, '#fffde4');
-            grad.addColorStop(0.5, '#a3e635');
-            grad.addColorStop(1, '#65a30d');
-            ctx.fillStyle = grad;
-            ctx.shadowColor = '#fff';
-            ctx.shadowBlur = 16;
-            ctx.fill();
-            ctx.shadowBlur = 0;
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = '#facc15';
-            ctx.stroke();
-            ctx.restore();
-        });
         // Draw player
         ctx.beginPath();
         ctx.arc(player.x, player.y, player.size, 0, 2 * Math.PI);
@@ -81,6 +63,23 @@ export function useGameDraw({
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 3;
         ctx.stroke();
+        // Draw XP orbs (production style)
+        xpOrbs.forEach(orb => {
+            ctx.save();
+            ctx.beginPath();
+            const orbRadius = orb.size + 2;
+            ctx.arc(orb.x, orb.y, orbRadius, 0, 2 * Math.PI);
+            ctx.fillStyle = '#22c55e'; // Solid green
+            ctx.shadowColor = '#bbf7d0';
+            ctx.shadowBlur = 24;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = (orb.spawnDelay ?? 0) > 0 ? '#dc2626' : '#16a34a';
+            ctx.stroke();
+            ctx.restore();
+        });
+
         // Draw health bar (always on top)
         const barWidth = Math.max(120, viewport.width * 0.3);
         const barHeight = 18;

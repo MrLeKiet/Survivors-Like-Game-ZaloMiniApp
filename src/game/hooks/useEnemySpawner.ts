@@ -6,7 +6,7 @@ export function useEnemySpawner({
     viewport,
     setEnemies,
     createEnemy,
-    intervalMs = 1000
+    intervalMs = 5000
 }: {
     gameOver: boolean,
     viewport: { width: number, height: number },

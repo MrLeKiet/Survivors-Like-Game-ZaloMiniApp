@@ -1,8 +1,106 @@
+// --- Helper functions ---
+import type { MutableRefObject } from 'react';
 import { useEffect } from 'react';
 import { moveEnemies } from '../enemy/moveEnemies';
 import { movePlayer } from '../player/movePlayer';
 import { moveProjectiles } from '../projectile/moveProjectiles';
 import { Enemy, Player, Projectile, XPOrb } from '../types';
+
+function handlePlayerEnemyCollision(playerRef: MutableRefObject<Player>, enemiesRef: MutableRefObject<Enemy[]>) {
+    let playerHit = false;
+    const survivedEnemies: Enemy[] = [];
+    for (const e of enemiesRef.current) {
+        const dx = playerRef.current.x - e.x;
+        const dy = playerRef.current.y - e.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < playerRef.current.size + e.size) {
+            if (!playerHit) {
+                playerRef.current.health -= 20;
+                playerHit = true;
+            }
+        } else {
+            survivedEnemies.push(e);
+        }
+    }
+    enemiesRef.current = survivedEnemies;
+    return playerRef.current.health <= 0;
+}
+
+function handleProjectileEnemyCollision(
+    enemiesRef: MutableRefObject<Enemy[]>,
+    projectilesRef: MutableRefObject<Projectile[]>,
+    xpOrbsRef: MutableRefObject<XPOrb[]>
+) {
+    const newOrbs: XPOrb[] = [];
+    const updatedEnemies: Enemy[] = [];
+    const usedProjectiles = new Set<number>();
+    enemiesRef.current.forEach((enemy, ei) => {
+        let hit = false;
+        for (let pi = 0; pi < projectilesRef.current.length; pi++) {
+            if (usedProjectiles.has(pi)) continue;
+            const p = projectilesRef.current[pi];
+            const dx = p.x - enemy.x;
+            const dy = p.y - enemy.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < p.size + enemy.size) {
+                hit = true;
+                usedProjectiles.add(pi);
+            }
+        }
+        if (hit) {
+            enemy.health -= 1;
+            if (enemy.health <= 0) {
+                newOrbs.push({ x: enemy.x, y: enemy.y, size: 10, value: 1, spawnDelay: 30 }); // 30 frames delay
+            } else {
+                updatedEnemies.push(enemy);
+            }
+        } else {
+            updatedEnemies.push(enemy);
+        }
+    });
+    if (newOrbs.length > 0) {
+        xpOrbsRef.current = [...xpOrbsRef.current, ...newOrbs];
+    }
+    enemiesRef.current = updatedEnemies;
+    projectilesRef.current = projectilesRef.current.filter((_, i) => !usedProjectiles.has(i));
+}
+
+function handleXpOrbUpdate(
+    playerRef: MutableRefObject<Player>,
+    xpOrbsRef: MutableRefObject<XPOrb[]>,
+    setPlayer: (p: Player) => void
+) {
+    let xpGain = 0;
+    const updatedOrbs: XPOrb[] = [];
+    xpOrbsRef.current.forEach(orb => {
+        let orbDelay = orb.spawnDelay ?? 0;
+        if (orbDelay > 0) {
+            orbDelay--;
+            updatedOrbs.push({ ...orb, spawnDelay: orbDelay });
+        } else {
+            const dx = playerRef.current.x - orb.x;
+            const dy = playerRef.current.y - orb.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < playerRef.current.size + orb.size) {
+                xpGain += orb.value;
+            } else {
+                updatedOrbs.push(orb);
+            }
+        }
+    });
+    xpOrbsRef.current = updatedOrbs;
+    if (xpGain > 0) {
+        playerRef.current.xp += xpGain;
+        while (playerRef.current.xp >= playerRef.current.xpToLevel) {
+            playerRef.current.xp -= playerRef.current.xpToLevel;
+            playerRef.current.level += 1;
+            playerRef.current.xpToLevel = Math.floor(playerRef.current.xpToLevel * 1.2) + 5;
+            playerRef.current.maxHealth += 10;
+            playerRef.current.health = playerRef.current.maxHealth;
+        }
+        setPlayer({ ...playerRef.current });
+    }
+}
 
 export function useGameLoop({
     player,
@@ -48,11 +146,11 @@ export function useGameLoop({
         enemiesRef.current = [...enemies];
         projectilesRef.current = [...projectiles];
         const update = () => {
-            // Take a snapshot of all enemies at the start of the frame
-            const originalEnemies = [...enemiesRef.current];
+            // Movement
             playerRef.current = movePlayer(playerRef.current, directionRef.current, viewport, bottomBlocker);
             enemiesRef.current = moveEnemies(enemiesRef.current, playerRef.current);
             projectilesRef.current = moveProjectiles(projectilesRef.current, viewport);
+            // Shooting
             if (enemiesRef.current.length > 0 && Date.now() - lastShotTime > 500) {
                 const nearest = enemiesRef.current.reduce((a, b) => {
                     const da = Math.hypot(playerRef.current.x - a.x, playerRef.current.y - a.y);
@@ -63,99 +161,32 @@ export function useGameLoop({
                 const dy = nearest.y - playerRef.current.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist > 0) {
-                    projectilesRef.current.push(
-                        {
-                            x: playerRef.current.x,
-                            y: playerRef.current.y,
-                            vx: (dx / dist) * 7,
-                            vy: (dy / dist) * 7,
-                            size: 12
-                        }
-                    );
+                    projectilesRef.current.push({
+                        x: playerRef.current.x,
+                        y: playerRef.current.y,
+                        vx: (dx / dist) * 7,
+                        vy: (dy / dist) * 7,
+                        size: 12
+                    });
                     lastShotTime = Date.now();
                 }
             }
-            // Remove enemies that hit the player and only deal damage once
-            let playerHit = false;
-            const survivedEnemies: Enemy[] = [];
-            for (const e of enemiesRef.current) {
-                const dx = playerRef.current.x - e.x;
-                const dy = playerRef.current.y - e.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < playerRef.current.size + e.size) {
-                    if (!playerHit) {
-                        playerRef.current.health -= 20;
-                        playerHit = true;
-                    }
-                } else {
-                    survivedEnemies.push(e);
-                }
-            }
-            enemiesRef.current = survivedEnemies;
-            if (playerRef.current.health <= 0) {
+            // Player/enemy collision
+            if (handlePlayerEnemyCollision(playerRef, enemiesRef)) {
                 setGameOver(true);
                 return;
             }
-            // Check collision: projectile/enemy
-            const hitEnemies = new Set<number>();
-            const hitProjectiles = new Set<number>();
-            originalEnemies.forEach((e, ei) => {
-                projectilesRef.current.forEach((p, pi) => {
-                    const dx = p.x - e.x;
-                    const dy = p.y - e.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < p.size + e.size) {
-                        hitEnemies.add(ei);
-                        hitProjectiles.add(pi);
-                    }
-                });
-            });
-            // Drop XP orbs for killed enemies BEFORE removing them
-            const newOrbs: XPOrb[] = [];
-            originalEnemies.forEach((e, i) => {
-                if (hitEnemies.has(i)) {
-                    newOrbs.push({ x: e.x, y: e.y, size: 10, value: 1 });
-                    console.debug('XP orb dropped at', e.x, e.y, 'for enemy', i);
-                }
-            });
-            if (newOrbs.length > 0) {
-                setXpOrbs(prev => [...prev, ...newOrbs]);
-            }
-            enemiesRef.current = enemiesRef.current.filter((_, i) => !hitEnemies.has(i));
-            projectilesRef.current = projectilesRef.current.filter((_, i) => !hitProjectiles.has(i));
-            // Collect XP orbs
-            let collected = false;
-            let xpGain = 0;
-            const remainingOrbs = xpOrbsRef.current.filter(orb => {
-                const dx = playerRef.current.x - orb.x;
-                const dy = playerRef.current.y - orb.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < playerRef.current.size + orb.size) {
-                    xpGain += orb.value;
-                    collected = true;
-                    return false;
-                }
-                return true;
-            });
-            setXpOrbs(remainingOrbs);
-            if (xpGain > 0) {
-                playerRef.current.xp += xpGain;
-                // Level up logic
-                while (playerRef.current.xp >= playerRef.current.xpToLevel) {
-                    playerRef.current.xp -= playerRef.current.xpToLevel;
-                    playerRef.current.level += 1;
-                    playerRef.current.xpToLevel = Math.floor(playerRef.current.xpToLevel * 1.2) + 5;
-                    // Optionally, increase player stats on level up
-                    playerRef.current.maxHealth += 10;
-                    playerRef.current.health = playerRef.current.maxHealth;
-                }
-            }
+            // Projectile/enemy collision and XP orb spawn
+            handleProjectileEnemyCollision(enemiesRef, projectilesRef, xpOrbsRef);
+            // XP orb update/collection
+            handleXpOrbUpdate(playerRef, xpOrbsRef, setPlayer);
+            // Sync XP orbs state for rendering
+            setXpOrbs([...xpOrbsRef.current]);
             setPlayer({ ...playerRef.current });
             setEnemies([...enemiesRef.current]);
             setProjectiles([...projectilesRef.current]);
             animationId = requestAnimationFrame(update);
         };
-        
         animationId = requestAnimationFrame(update);
         return () => cancelAnimationFrame(animationId);
     }, [gameOver, viewport]);
