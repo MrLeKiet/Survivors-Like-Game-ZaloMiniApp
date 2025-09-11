@@ -6,16 +6,18 @@ export function useEnemySpawner({
     viewport,
     setEnemies,
     createEnemy,
-    intervalMs
+    intervalMs,
+    paused = false
 }: {
     gameOver: boolean,
     viewport: { width: number, height: number },
     setEnemies: React.Dispatch<React.SetStateAction<Enemy[]>>,
     createEnemy: (x: number, y: number) => Enemy,
-    intervalMs: number
+    intervalMs: number,
+    paused?: boolean
 }) {
     useEffect(() => {
-        if (gameOver) return;
+        if (gameOver || paused) return;
         const interval = setInterval(() => {
             const border = Math.floor(Math.random() * 4);
             let x = 0, y = 0;
@@ -35,5 +37,5 @@ export function useEnemySpawner({
             setEnemies(prev => [...prev, createEnemy(x, y)]);
         }, intervalMs);
         return () => clearInterval(interval);
-    }, [gameOver, viewport, setEnemies, createEnemy, intervalMs]);
+    }, [gameOver, paused, viewport, setEnemies, createEnemy, intervalMs]);
 }

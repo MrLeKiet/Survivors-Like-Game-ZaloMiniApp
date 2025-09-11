@@ -7,8 +7,14 @@ import { useKeyboardMovement, useTouchMovement } from '../game/hooks/usePlayerIn
 import { useViewport } from '../game/hooks/useViewport';
 import { createPlayer } from "../game/player/player";
 import { Enemy, Player, Projectile, XPOrb } from "../game/types";
+import { getRandomUpgrades } from '../game/upgrades/getRandomUpgrades';
+import { Upgrade, UPGRADE_POOL } from '../game/upgrades/upgradePool';
+import { LevelUpModal } from './LevelUpModal';
 
 const GameContainer: React.FC = () => {
+    const [showLevelUp, setShowLevelUp] = useState(false);
+    const [levelUpChoices, setLevelUpChoices] = useState<Upgrade[]>([]);
+    const [pendingLevel, setPendingLevel] = useState<number|null>(null);
     const viewport = useViewport();
     const [player, setPlayer] = useState<Player>(createPlayer(window.innerWidth / 2, window.innerHeight / 2));
     const playerRef = useRef<Player>(player);
@@ -42,7 +48,8 @@ const GameContainer: React.FC = () => {
         viewport,
         setEnemies,
         createEnemy,
-        intervalMs: ENEMY_SPAWN_INTERVAL
+        intervalMs: ENEMY_SPAWN_INTERVAL,
+        paused: showLevelUp
     });
 
     // Custom setter to update both state and ref for XP orbs
@@ -53,7 +60,10 @@ const GameContainer: React.FC = () => {
             return next;
         });
     };
-    // Main game loop
+    // Track last level for level-up detection
+    const lastLevelRef = useRef(player.level);
+
+    // Main game loop (paused if modal is open)
     useGameLoop({
         player,
         setPlayer,
@@ -68,10 +78,30 @@ const GameContainer: React.FC = () => {
         xpOrbs,
         setXpOrbs: setXpOrbsSync,
         xpOrbsRef,
-        gameOver,
+        gameOver: showLevelUp ? true : gameOver, // Pause game when modal is open
         setGameOver,
         viewport
     });
+
+    // Detect level up and show modal
+    React.useEffect(() => {
+        if (player.level > lastLevelRef.current) {
+            setShowLevelUp(true);
+            setLevelUpChoices(getRandomUpgrades(UPGRADE_POOL, 3));
+            setPendingLevel(player.level);
+        }
+        lastLevelRef.current = player.level;
+    }, [player.level]);
+    // Handle upgrade selection
+    const handleUpgradeSelect = (upgrade: Upgrade) => {
+        if (pendingLevel !== null) {
+            // Apply upgrade to player
+            upgrade.apply(playerRef.current);
+            setPlayer({ ...playerRef.current });
+            setShowLevelUp(false);
+            setPendingLevel(null);
+        }
+    };
 
     // Drawing (use refs for smooth movement)
     useGameDraw({
@@ -113,6 +143,9 @@ const GameContainer: React.FC = () => {
                     touchAction: 'none',
                 }}
             />
+            {showLevelUp && (
+                <LevelUpModal upgrades={levelUpChoices} onSelect={handleUpgradeSelect} />
+            )}
         </>
     );
 };

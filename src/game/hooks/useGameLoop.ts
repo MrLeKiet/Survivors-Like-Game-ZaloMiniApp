@@ -113,6 +113,7 @@ export function useGameLoop({
     projectiles,
     setProjectiles,
     projectilesRef,
+    xpOrbs,
     setXpOrbs,
     xpOrbsRef,
     gameOver,

@@ -10,6 +10,6 @@ export function createPlayer(x: number, y: number): Player {
         maxHealth: 100,
         xp: 0,
         level: 1,
-        xpToLevel: 10
+        xpToLevel: 1
     };
 }
