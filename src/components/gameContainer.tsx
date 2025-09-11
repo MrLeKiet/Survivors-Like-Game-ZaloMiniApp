@@ -42,7 +42,7 @@ const GameContainer: React.FC = () => {
         viewport,
         setEnemies,
         createEnemy,
-        intervalMs: 5000
+        intervalMs: 100
     });
 
     // Custom setter to update both state and ref for XP orbs
@@ -84,22 +84,6 @@ const GameContainer: React.FC = () => {
         canvasRef
     });
 
-    // React.useEffect(() => {
-    //     if (gameOver) return;
-    //     const interval = setInterval(() => {
-    //         const x = Math.random() * viewport.width;
-    //         const y = Math.random() * viewport.height;
-    //         setXpOrbs(prev => [
-    //             ...prev,
-    //             { x, y, size: 10, value: 1, spawnDelay: 0 }
-    //         ]);
-    //     }, 3000);
-    //     return () => clearInterval(interval);
-    // }, [gameOver, viewport, setXpOrbs]);
-
-
-    // XP orb update/collection logic is handled in useGameLoop only
-
     return (
         <>
             <div style={{
@@ -119,9 +103,9 @@ const GameContainer: React.FC = () => {
             </div>
             <canvas
                 ref={canvasRef}
+                className="h-full"
                 style={{
                     width: '100vw',
-                    height: '100dvh',
                     display: 'block',
                     background: '#111827',
                     borderRadius: 0,
@@ -129,16 +113,6 @@ const GameContainer: React.FC = () => {
                     touchAction: 'none',
                 }}
             />
-            {gameOver && (
-                <button
-                    className="mt-4 px-6 py-2 bg-pink-600 text-white rounded shadow"
-                    onClick={() => {
-                        setPlayer(createPlayer(viewport.width / 2, viewport.height / 2));
-                        setProjectiles([]);
-                        setGameOver(false);
-                    }}
-                >Restart</button>
-            )}
         </>
     );
 };
