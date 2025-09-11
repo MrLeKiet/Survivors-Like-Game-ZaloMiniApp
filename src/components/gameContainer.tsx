@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { createEnemy } from "../game/enemy/enemy";
+import { createEnemy, ENEMY_SPAWN_INTERVAL } from "../game/enemy/enemy";
 import { useEnemySpawner } from '../game/hooks/useEnemySpawner';
 import { useGameDraw } from '../game/hooks/useGameDraw';
 import { useGameLoop } from '../game/hooks/useGameLoop';
@@ -42,7 +42,7 @@ const GameContainer: React.FC = () => {
         viewport,
         setEnemies,
         createEnemy,
-        intervalMs: 100
+        intervalMs: ENEMY_SPAWN_INTERVAL
     });
 
     // Custom setter to update both state and ref for XP orbs

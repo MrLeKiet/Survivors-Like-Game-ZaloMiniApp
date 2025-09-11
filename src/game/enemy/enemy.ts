@@ -1,3 +1,5 @@
+// Centralized enemy spawn interval (ms)
+export const ENEMY_SPAWN_INTERVAL = 1000;
 import { Enemy } from '../types';
 
 export function createEnemy(x: number, y: number): Enemy {

@@ -6,13 +6,13 @@ export function useEnemySpawner({
     viewport,
     setEnemies,
     createEnemy,
-    intervalMs = 1000
+    intervalMs
 }: {
     gameOver: boolean,
     viewport: { width: number, height: number },
     setEnemies: React.Dispatch<React.SetStateAction<Enemy[]>>,
     createEnemy: (x: number, y: number) => Enemy,
-    intervalMs?: number
+    intervalMs: number
 }) {
     useEffect(() => {
         if (gameOver) return;
