@@ -141,13 +141,12 @@ export function useGameLoop({
         if (gameOver) return;
         let animationId: number;
         let lastShotTime = Date.now();
-        const bottomBlocker = 60;
         playerRef.current = { ...player };
         enemiesRef.current = [...enemies];
         projectilesRef.current = [...projectiles];
         const update = () => {
             // Movement
-            playerRef.current = movePlayer(playerRef.current, directionRef.current, viewport, bottomBlocker);
+            playerRef.current = movePlayer(playerRef.current, directionRef.current, viewport);
             enemiesRef.current = moveEnemies(enemiesRef.current, playerRef.current);
             projectilesRef.current = moveProjectiles(projectilesRef.current, viewport);
             // Shooting
