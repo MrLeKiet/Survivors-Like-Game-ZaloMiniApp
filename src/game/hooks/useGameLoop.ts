@@ -51,6 +51,10 @@ function handleProjectileEnemyCollision(
             enemy.health -= 1;
             if (enemy.health <= 0) {
                 newOrbs.push({ x: enemy.x, y: enemy.y, size: 10, value: 1, spawnDelay: 30 }); // 30 frames delay
+                //remove orbs after some time (handled in XP orb update)
+                setTimeout(() => {
+                    xpOrbsRef.current = xpOrbsRef.current.filter(orb => orb.x !== enemy.x || orb.y !== enemy.y);
+                }, 30000); // 30 seconds
             } else {
                 updatedEnemies.push(enemy);
             }
@@ -150,7 +154,7 @@ export function useGameLoop({
             enemiesRef.current = moveEnemies(enemiesRef.current, playerRef.current);
             projectilesRef.current = moveProjectiles(projectilesRef.current, viewport);
             // Shooting
-            if (enemiesRef.current.length > 0 && Date.now() - lastShotTime > 500) {
+            if (enemiesRef.current.length > 0 && Date.now() - lastShotTime > 1000) {
                 const nearest = enemiesRef.current.reduce((a, b) => {
                     const da = Math.hypot(playerRef.current.x - a.x, playerRef.current.y - a.y);
                     const db = Math.hypot(playerRef.current.x - b.x, playerRef.current.y - b.y);

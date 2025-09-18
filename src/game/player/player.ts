@@ -4,7 +4,7 @@ export function createPlayer(x: number, y: number): Player {
     return {
         x,
         y,
-        size: 6,
+        size: 10,
         speed: 3,
         health: 100,
         maxHealth: 100,
