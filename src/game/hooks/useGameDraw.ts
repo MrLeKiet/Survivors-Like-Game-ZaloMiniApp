@@ -30,15 +30,53 @@ export function useGameDraw({
         ctx.scale(dpr, dpr);
         ctx.clearRect(0, 0, viewport.width, viewport.height);
         // ...existing code...
-        // Draw enemies
+        // Load enemy animation frames once
+        const ENEMY_FRAMES = [
+            'Wraith_01_Moving Forward_000.png',
+            'Wraith_01_Moving Forward_001.png',
+            'Wraith_01_Moving Forward_002.png',
+            'Wraith_01_Moving Forward_003.png',
+            'Wraith_01_Moving Forward_004.png',
+            'Wraith_01_Moving Forward_005.png',
+            'Wraith_01_Moving Forward_007.png',
+            'Wraith_01_Moving Forward_008.png',
+            'Wraith_01_Moving Forward_009.png',
+            'Wraith_01_Moving Forward_010.png',
+            'Wraith_01_Moving Forward_011.png',
+        ];
+        const ENEMY_IMG_PATH = '/src/game/enemy/img/';
+        // Static cache for loaded images
+        const winAny = window as any;
+        if (!winAny._ENEMY_IMAGES) {
+            winAny._ENEMY_IMAGES = ENEMY_FRAMES.map(name => {
+                const img = new window.Image();
+                img.src = ENEMY_IMG_PATH + name;
+                return img;
+            });
+        }
+        const enemyImages = winAny._ENEMY_IMAGES;
+        // Draw enemies with animation
         enemies.forEach(e => {
-            ctx.beginPath();
-            ctx.arc(e.x, e.y, e.size, 0, 2 * Math.PI);
-            ctx.fillStyle = '#22d3ee';
-            ctx.fill();
-            ctx.strokeStyle = '#0ea5e9';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            // Advance animation frame
+            e.animFrame = (typeof e.animFrame === 'number' ? e.animFrame : Math.floor(Math.random() * ENEMY_FRAMES.length));
+            e.animFrame = (e.animFrame + 1) % ENEMY_FRAMES.length;
+            const img = enemyImages[e.animFrame];
+            if (img?.complete) {
+                ctx.save();
+                // Increase image size by 1.5x
+                const scale = 4;
+                ctx.drawImage(img, e.x - e.size * scale, e.y - e.size * scale, e.size * 2 * scale, e.size * 2 * scale);
+                ctx.restore();
+            } else {
+                // Fallback: draw circle if image not loaded
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.size, 0, 2 * Math.PI);
+                ctx.fillStyle = '#22d3ee';
+                ctx.fill();
+                ctx.strokeStyle = '#0ea5e9';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
         });
         // Draw projectiles
         projectiles.forEach(p => {

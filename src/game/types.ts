@@ -28,6 +28,7 @@ export type Enemy = {
     speed: number;
     health: number;
     maxHealth?: number;
+    animFrame?: number;
 };
 
 export type Projectile = {
