@@ -10,9 +10,17 @@ export const UPGRADE_POOL: Upgrade[] = [
     {
         id: 'triple-bullet',
         name: 'Triple Bullet',
-        description: 'Shoot three projectiles in a spread (upside-down triangle).',
+        description: 'Shoot three projectiles in a spread.',
         apply: (player) => {
             player.tripleBullet = true;
+        },
+    },
+    {
+        id: 'homing-missile',
+        name: 'Homing Missile',
+        description: 'Launch a missile that follows the nearest enemy and explodes for AOE damage.',
+        apply: (player) => {
+            player.homingMissile = true;
         },
     },
 ];

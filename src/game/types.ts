@@ -18,6 +18,7 @@ export type Player = {
     level: number;
     xpToLevel: number;
     tripleBullet?: boolean;
+    homingMissile?: boolean;
 };
 
 export type Enemy = {
@@ -35,4 +36,9 @@ export type Projectile = {
     vx: number;
     vy: number;
     size: number;
+    homing?: boolean;
+    targetId?: number;
+    orbitPhase?: number;
+    aoe?: boolean;
+    explodeFrame?: number;
 };

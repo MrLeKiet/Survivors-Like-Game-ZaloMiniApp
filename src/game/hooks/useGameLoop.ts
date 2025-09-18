@@ -3,6 +3,7 @@ import type { MutableRefObject } from 'react';
 import { useEffect } from 'react';
 import { moveEnemies } from '../enemy/moveEnemies';
 import { movePlayer } from '../player/movePlayer';
+import { moveHomingMissiles } from '../projectile/moveHomingMissiles';
 import { moveProjectiles } from '../projectile/moveProjectiles';
 import { Enemy, Player, Projectile, XPOrb } from '../types';
 
@@ -34,6 +35,7 @@ function handleProjectileEnemyCollision(
     const newOrbs: XPOrb[] = [];
     const updatedEnemies: Enemy[] = [];
     const usedProjectiles = new Set<number>();
+    const explosions: { x: number; y: number; frame: number }[] = [];
     enemiesRef.current.forEach((enemy, ei) => {
         let hit = false;
         for (let pi = 0; pi < projectilesRef.current.length; pi++) {
@@ -45,16 +47,19 @@ function handleProjectileEnemyCollision(
             if (dist < p.size + enemy.size) {
                 hit = true;
                 usedProjectiles.add(pi);
+                // If homing missile, trigger explosion
+                if (p.homing) {
+                    explosions.push({ x: p.x, y: p.y, frame: 0 });
+                }
             }
         }
         if (hit) {
             enemy.health -= 1;
             if (enemy.health <= 0) {
                 newOrbs.push({ x: enemy.x, y: enemy.y, size: 10, value: 1, spawnDelay: 30 }); // 30 frames delay
-                //remove orbs after some time (handled in XP orb update)
                 setTimeout(() => {
                     xpOrbsRef.current = xpOrbsRef.current.filter(orb => orb.x !== enemy.x || orb.y !== enemy.y);
-                }, 30000); // 30 seconds
+                }, 3000); // 5 seconds
             } else {
                 updatedEnemies.push(enemy);
             }
@@ -62,11 +67,30 @@ function handleProjectileEnemyCollision(
             updatedEnemies.push(enemy);
         }
     });
+    // Apply AOE damage for each explosion
+    explosions.forEach(explosion => {
+        updatedEnemies.forEach(enemy => {
+            const dist = Math.hypot(explosion.x - enemy.x, explosion.y - enemy.y);
+            if (dist < 48) { // AOE radius
+                enemy.health -= 2; // AOE damage
+            }
+        });
+        // Mark explosion for animation (store in projectiles as aoe)
+        projectilesRef.current.push({
+            x: explosion.x,
+            y: explosion.y,
+            vx: 0,
+            vy: 0,
+            size: 150,
+            aoe: true,
+            explodeFrame: 0
+        });
+    });
     if (newOrbs.length > 0) {
         xpOrbsRef.current = [...xpOrbsRef.current, ...newOrbs];
     }
     enemiesRef.current = updatedEnemies;
-    projectilesRef.current = projectilesRef.current.filter((_, i) => !usedProjectiles.has(i));
+    projectilesRef.current = projectilesRef.current.filter((p, i) => !usedProjectiles.has(i) || p.aoe);
 }
 
 function handleXpOrbUpdate(
@@ -152,9 +176,24 @@ export function useGameLoop({
             // Movement
             playerRef.current = movePlayer(playerRef.current, directionRef.current, viewport);
             enemiesRef.current = moveEnemies(enemiesRef.current, playerRef.current);
-            projectilesRef.current = moveProjectiles(projectilesRef.current, viewport);
+            // Split projectiles into homing and normal
+            const homingProjectiles = projectilesRef.current.filter(p => p.homing);
+            const normalProjectiles = projectilesRef.current.filter(p => !p.homing);
+            // Move projectiles synchronously
+            let movedHoming = moveHomingMissiles(homingProjectiles, enemiesRef.current, viewport);
+            let movedNormal = moveProjectiles(normalProjectiles, viewport);
+            // Animate and remove AOE explosions after a few frames
+            movedNormal = movedNormal.map(p => {
+                if (p.aoe) {
+                    const frame = (p.explodeFrame ?? 0) + 1;
+                    if (frame > 10) return undefined; // Remove after 10 frames
+                    return { ...p, explodeFrame: frame };
+                }
+                return p;
+            }).filter((p): p is Projectile => !!p);
+            projectilesRef.current = [...movedHoming, ...movedNormal];
             // Shooting
-            if (enemiesRef.current.length > 0 && Date.now() - lastShotTime > 1000) {
+            if (enemiesRef.current.length > 0 && Date.now() - lastShotTime > 500) {
                 const nearest = enemiesRef.current.reduce((a, b) => {
                     const da = Math.hypot(playerRef.current.x - a.x, playerRef.current.y - a.y);
                     const db = Math.hypot(playerRef.current.x - b.x, playerRef.current.y - b.y);
@@ -186,6 +225,17 @@ export function useGameLoop({
                             vx: (dx / dist) * 7,
                             vy: (dy / dist) * 7,
                             size: 12
+                        });
+                    }
+                    // Fire homing missile if upgrade
+                    if (playerRef.current.homingMissile) {
+                        projectilesRef.current.push({
+                            x: playerRef.current.x,
+                            y: playerRef.current.y,
+                            vx: (dx / dist) * 8,
+                            vy: (dy / dist) * 8,
+                            size: 16,
+                            homing: true
                         });
                     }
                     lastShotTime = Date.now();
