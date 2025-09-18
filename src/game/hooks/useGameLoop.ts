@@ -164,13 +164,30 @@ export function useGameLoop({
                 const dy = nearest.y - playerRef.current.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist > 0) {
-                    projectilesRef.current.push({
-                        x: playerRef.current.x,
-                        y: playerRef.current.y,
-                        vx: (dx / dist) * 7,
-                        vy: (dy / dist) * 7,
-                        size: 12
-                    });
+                    if (playerRef.current.tripleBullet) {
+                        // Triple bullet: spread angles -15, 0, +15 degrees
+                        const angle = Math.atan2(dy, dx);
+                        const spread = 15 * Math.PI / 180;
+                        const speed = 7;
+                        for (let i = -1; i <= 1; i++) {
+                            const a = angle + i * spread;
+                            projectilesRef.current.push({
+                                x: playerRef.current.x,
+                                y: playerRef.current.y,
+                                vx: Math.cos(a) * speed,
+                                vy: Math.sin(a) * speed,
+                                size: 12
+                            });
+                        }
+                    } else {
+                        projectilesRef.current.push({
+                            x: playerRef.current.x,
+                            y: playerRef.current.y,
+                            vx: (dx / dist) * 7,
+                            vy: (dy / dist) * 7,
+                            size: 12
+                        });
+                    }
                     lastShotTime = Date.now();
                 }
             }

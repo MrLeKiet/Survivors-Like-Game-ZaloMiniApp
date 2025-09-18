@@ -17,6 +17,7 @@ export type Player = {
     xp: number;
     level: number;
     xpToLevel: number;
+    tripleBullet?: boolean;
 };
 
 export type Enemy = {
